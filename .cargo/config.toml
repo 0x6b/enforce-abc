@@ -1,0 +1,9 @@
+[build]
+rustflags = ["-Ctarget-cpu=native"]
+
+[alias]
+xtask = "run --release --package xtask --"
+x = "xtask"
+
+[env]
+CARGO_WORKSPACE_DIR = { value = "", relative = true }
