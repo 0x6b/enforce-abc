@@ -3,6 +3,11 @@ name = "enforce-abc"
 version.workspace = true
 edition.workspace = true
 description = "Enforce the ABC input source on every macOS app activation."
+license = "MIT"
+repository = "https://github.com/0x6b/enforce-abc"
+readme = "README.md"
+keywords = ["macos", "keyboard", "input-source", "launchagent"]
+categories = ["command-line-utilities"]
 default-run = "enforce-abc"
 
 [[bin]]
