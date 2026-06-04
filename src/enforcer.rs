@@ -60,13 +60,9 @@ fn frontmost_app_label() -> String {
     let Some(app) = NSWorkspace::sharedWorkspace().frontmostApplication() else {
         return "<no frontmost app>".into();
     };
-    let name = app.localizedName().map(|s| s.to_string());
-    let bundle = app.bundleIdentifier().map(|s| s.to_string());
-    format!(
-        "{} ({})",
-        name.as_deref().unwrap_or("<unnamed>"),
-        bundle.as_deref().unwrap_or("<no bundle id>"),
-    )
+    let name = app.localizedName().map_or_else(|| "<unnamed>".into(), |s| s.to_string());
+    let bundle = app.bundleIdentifier().map_or_else(|| "<no bundle id>".into(), |s| s.to_string());
+    format!("{name} ({bundle})")
 }
 
 fn observe_app_activation(
