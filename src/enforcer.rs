@@ -23,12 +23,15 @@ pub fn run() -> Result<()> {
     app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
 
     let source = RefCell::new(resolve_abc()?);
+    debug!("Resolved {ABC_INPUT_SOURCE_ID}; current source is {:?}", current_id());
+
     if let Err(why) = enforce_abc(&source, "<startup>") {
         error!("Failed to switch to {ABC_INPUT_SOURCE_ID} at startup: {why}");
     }
 
     let block = RcBlock::new(move |note: NonNull<NSNotification>| {
         let trigger = activated_app_label(unsafe { note.as_ref() });
+        debug!("App activated: {trigger}");
         if let Err(why) = enforce_abc(&source, &trigger) {
             error!("Failed to switch to {ABC_INPUT_SOURCE_ID} (trigger: {trigger}): {why}");
         }
@@ -47,8 +50,8 @@ fn enforce_abc(source: &RefCell<CFType>, trigger: &str) -> Result<()> {
         debug!("Trigger: {trigger}; already on {ABC_INPUT_SOURCE_ID}, no-op");
         return Ok(());
     }
-    if select(&source.borrow()).is_err() {
-        debug!("Trigger: {trigger}; cached source stale, re-resolving");
+    if let Err(why) = select(&source.borrow()) {
+        debug!("Trigger: {trigger}; cached source stale ({why}), re-resolving");
         *source.borrow_mut() = resolve_abc()?;
         select(&source.borrow())?;
     }
