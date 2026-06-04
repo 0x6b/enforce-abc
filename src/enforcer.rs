@@ -5,7 +5,10 @@ use block2::RcBlock;
 use core_foundation::base::CFType;
 use log::{debug, error, info};
 use objc2::{rc::Retained, runtime::ProtocolObject};
-use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy, NSWorkspace};
+use objc2_app_kit::{
+    NSApplication, NSApplicationActivationPolicy, NSRunningApplication, NSWorkspace,
+    NSWorkspaceApplicationKey,
+};
 use objc2_foundation::{
     MainThreadMarker, NSNotification, NSObjectProtocol, NSOperationQueue, NSString,
 };
@@ -24,8 +27,8 @@ pub fn run() -> Result<()> {
         error!("Failed to switch to {ABC_INPUT_SOURCE_ID} at startup: {why}");
     }
 
-    let block = RcBlock::new(move |_: NonNull<NSNotification>| {
-        let trigger = frontmost_app_label();
+    let block = RcBlock::new(move |note: NonNull<NSNotification>| {
+        let trigger = activated_app_label(unsafe { note.as_ref() });
         if let Err(why) = enforce_abc(&source, &trigger) {
             error!("Failed to switch to {ABC_INPUT_SOURCE_ID} (trigger: {trigger}): {why}");
         }
@@ -56,13 +59,24 @@ fn enforce_abc(source: &RefCell<CFType>, trigger: &str) -> Result<()> {
     Ok(())
 }
 
-fn frontmost_app_label() -> String {
-    let Some(app) = NSWorkspace::sharedWorkspace().frontmostApplication() else {
-        return "<no frontmost app>".into();
-    };
-    let name = app.localizedName().map_or_else(|| "<unnamed>".into(), |s| s.to_string());
-    let bundle = app.bundleIdentifier().map_or_else(|| "<no bundle id>".into(), |s| s.to_string());
-    format!("{name} ({bundle})")
+/// Extract the activated application from the notification's `userInfo`, falling back to
+/// `NSWorkspace.frontmostApplication`.
+fn activated_app_label(note: &NSNotification) -> String {
+    let app = note
+        .userInfo()
+        .and_then(|info| unsafe { info.objectForKey(NSWorkspaceApplicationKey) })
+        .and_then(|obj| obj.downcast::<NSRunningApplication>().ok())
+        .or_else(|| NSWorkspace::sharedWorkspace().frontmostApplication());
+
+    let Some(app) = app else { return "<no app>".into() };
+    let name = app
+        .localizedName()
+        .map_or_else(|| "<unnamed>".into(), |s| s.to_string());
+    let bundle = app
+        .bundleIdentifier()
+        .map_or_else(|| "<no bundle id>".into(), |s| s.to_string());
+    let pid = app.processIdentifier();
+    format!("{name} ({bundle}, pid {pid})")
 }
 
 fn observe_app_activation(
