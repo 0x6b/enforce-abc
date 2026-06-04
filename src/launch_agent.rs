@@ -47,8 +47,8 @@ impl LaunchAgent {
         log_cmd(run_cmd!(launchctl unload -w $plist), "unload");
 
         match remove_file(plist) {
-            Ok(()) => info!("Removed {plist:?}"),
-            Err(why) => warn!("Failed to remove {plist:?}: {why}"),
+            Ok(()) => info!("Removed {}", plist.display()),
+            Err(why) => warn!("Failed to remove {}: {why}", plist.display()),
         }
         Ok(())
     }
