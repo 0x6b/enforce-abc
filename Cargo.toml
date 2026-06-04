@@ -6,7 +6,7 @@ description = "Enforce the ABC input source on every macOS app activation."
 license = "MIT"
 repository = "https://github.com/0x6b/enforce-abc"
 readme = "README.md"
-keywords = ["macos", "keyboard", "input-source", "launchagent"]
+keywords = ["macos", "keyboard", "input-source"]
 categories = ["command-line-utilities"]
 default-run = "enforce-abc"
 
@@ -32,12 +32,12 @@ log = "0.4"
 anyhow.workspace = true
 clap.workspace = true
 cmd_lib.workspace = true
-dirs = "6.0"
 env_logger.workspace = true
 log.workspace = true
 
 block2 = "0.6"
 core-foundation = "0.10"
+dirs = "6.0"
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = [
     "NSApplication",
