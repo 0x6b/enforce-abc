@@ -1,9 +1,9 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
-#[clap(version)]
+#[command(version)]
 pub struct Args {
-    #[clap(subcommand)]
+    #[command(subcommand)]
     pub command: Option<Command>,
 }
 
