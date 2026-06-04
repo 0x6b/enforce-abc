@@ -1,4 +1,5 @@
 use std::{
+    env::var_os,
     fs::{remove_file, write},
     io,
     path::{Path, PathBuf},
@@ -6,7 +7,6 @@ use std::{
 
 use anyhow::{Context, Result};
 use cmd_lib::{run_cmd, run_fun};
-use dirs::home_dir;
 use log::{info, warn};
 
 #[derive(Debug)]
@@ -20,7 +20,9 @@ pub struct LaunchAgent {
 impl LaunchAgent {
     pub fn new(label: &str) -> Result<Self> {
         let uid = run_fun!(/usr/bin/id -u)?;
-        let home = home_dir().context("could not determine home directory")?;
+        let home = var_os("HOME")
+            .map(PathBuf::from)
+            .context("HOME environment variable is not set")?;
         Ok(Self {
             label: label.to_string(),
             uid,

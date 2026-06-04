@@ -37,7 +37,6 @@ log.workspace = true
 
 block2 = "0.6"
 core-foundation = "0.10"
-dirs = "6.0"
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = [
     "NSApplication",
