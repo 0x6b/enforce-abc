@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
+use enforcer::run;
 use env_logger::{Builder, Env};
-use forcer::run;
 use log::debug;
 
 use crate::{
@@ -10,7 +10,7 @@ use crate::{
 };
 
 mod args;
-mod forcer;
+mod enforcer;
 mod input_source;
 mod launch_agent;
 

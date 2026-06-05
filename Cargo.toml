@@ -3,6 +3,11 @@ name = "enforce-abc"
 version.workspace = true
 edition.workspace = true
 description = "Enforce the ABC input source on every macOS app activation."
+license = "MIT"
+repository = "https://github.com/0x6b/enforce-abc"
+readme = "README.md"
+keywords = ["macos", "keyboard", "input-source"]
+categories = ["command-line-utilities"]
 default-run = "enforce-abc"
 
 [[bin]]
@@ -13,7 +18,7 @@ path = "src/main.rs"
 members = ["xtask"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 
 [workspace.dependencies]
@@ -27,7 +32,6 @@ log = "0.4"
 anyhow.workspace = true
 clap.workspace = true
 cmd_lib.workspace = true
-dirs = "6.0"
 env_logger.workspace = true
 log.workspace = true
 

@@ -5,7 +5,10 @@ use block2::RcBlock;
 use core_foundation::base::CFType;
 use log::{debug, error, info};
 use objc2::{rc::Retained, runtime::ProtocolObject};
-use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy, NSWorkspace};
+use objc2_app_kit::{
+    NSApplication, NSApplicationActivationPolicy, NSRunningApplication, NSWorkspace,
+    NSWorkspaceApplicationKey,
+};
 use objc2_foundation::{
     MainThreadMarker, NSNotification, NSObjectProtocol, NSOperationQueue, NSString,
 };
@@ -20,12 +23,15 @@ pub fn run() -> Result<()> {
     app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
 
     let source = RefCell::new(resolve_abc()?);
+    debug!("Resolved {ABC_INPUT_SOURCE_ID}; current source is {:?}", current_id());
+
     if let Err(why) = enforce_abc(&source, "<startup>") {
         error!("Failed to switch to {ABC_INPUT_SOURCE_ID} at startup: {why}");
     }
 
-    let block = RcBlock::new(move |_: NonNull<NSNotification>| {
-        let trigger = frontmost_app_label();
+    let block = RcBlock::new(move |note: NonNull<NSNotification>| {
+        let trigger = activated_app_label(unsafe { note.as_ref() });
+        debug!("App activated: {trigger}");
         if let Err(why) = enforce_abc(&source, &trigger) {
             error!("Failed to switch to {ABC_INPUT_SOURCE_ID} (trigger: {trigger}): {why}");
         }
@@ -44,8 +50,8 @@ fn enforce_abc(source: &RefCell<CFType>, trigger: &str) -> Result<()> {
         debug!("Trigger: {trigger}; already on {ABC_INPUT_SOURCE_ID}, no-op");
         return Ok(());
     }
-    if select(&source.borrow()).is_err() {
-        debug!("Trigger: {trigger}; cached source stale, re-resolving");
+    if let Err(why) = select(&source.borrow()) {
+        debug!("Trigger: {trigger}; cached source stale ({why}), re-resolving");
         *source.borrow_mut() = resolve_abc()?;
         select(&source.borrow())?;
     }
@@ -56,17 +62,24 @@ fn enforce_abc(source: &RefCell<CFType>, trigger: &str) -> Result<()> {
     Ok(())
 }
 
-fn frontmost_app_label() -> String {
-    let Some(app) = NSWorkspace::sharedWorkspace().frontmostApplication() else {
-        return "<no frontmost app>".into();
-    };
-    let name = app.localizedName().map(|s| s.to_string());
-    let bundle = app.bundleIdentifier().map(|s| s.to_string());
-    format!(
-        "{} ({})",
-        name.as_deref().unwrap_or("<unnamed>"),
-        bundle.as_deref().unwrap_or("<no bundle id>"),
-    )
+/// Extract the activated application from the notification's `userInfo`, falling back to
+/// `NSWorkspace.frontmostApplication`.
+fn activated_app_label(note: &NSNotification) -> String {
+    let app = note
+        .userInfo()
+        .and_then(|info| unsafe { info.objectForKey(NSWorkspaceApplicationKey) })
+        .and_then(|obj| obj.downcast::<NSRunningApplication>().ok())
+        .or_else(|| NSWorkspace::sharedWorkspace().frontmostApplication());
+
+    let Some(app) = app else { return "<no app>".into() };
+    let name = app
+        .localizedName()
+        .map_or_else(|| "<unnamed>".into(), |s| s.to_string());
+    let bundle = app
+        .bundleIdentifier()
+        .map_or_else(|| "<no bundle id>".into(), |s| s.to_string());
+    let pid = app.processIdentifier();
+    format!("{name} ({bundle}, pid {pid})")
 }
 
 fn observe_app_activation(
