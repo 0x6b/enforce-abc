@@ -1,12 +1,11 @@
 use std::{
     env::var_os,
     fs::{remove_file, write},
-    io,
     path::{Path, PathBuf},
+    process::Command,
 };
 
 use anyhow::{Context, Result};
-use cmd_lib::{run_cmd, run_fun};
 use log::{info, warn};
 
 #[derive(Debug)]
@@ -19,7 +18,14 @@ pub struct LaunchAgent {
 
 impl LaunchAgent {
     pub fn new(label: &str) -> Result<Self> {
-        let uid = run_fun!(/usr/bin/id -u)?;
+        let output = Command::new("/usr/bin/id")
+            .arg("-u")
+            .output()
+            .context("failed to run id -u")?;
+        let uid = String::from_utf8(output.stdout)
+            .context("id -u output is not UTF-8")?
+            .trim()
+            .to_string();
         let home = var_os("HOME")
             .map(PathBuf::from)
             .context("HOME environment variable is not set")?;
@@ -34,19 +40,21 @@ impl LaunchAgent {
     pub fn register(&self) -> Result<()> {
         let Self { label, uid, bin, plist } = self;
         write(plist, plist_contents(label, bin))?;
+        let plist = plist.to_string_lossy();
 
-        log_cmd(run_cmd!(launchctl bootstrap gui/$uid $plist), "bootstrap");
-        log_cmd(run_cmd!(launchctl load -w $plist), "load");
-        log_cmd(run_cmd!(launchctl enable gui/$uid/$label), "enable");
-        log_cmd(run_cmd!(launchctl start $label), "start");
+        launchctl(&["bootstrap", &format!("gui/{uid}"), &plist], "bootstrap");
+        launchctl(&["load", "-w", &plist], "load");
+        launchctl(&["enable", &format!("gui/{uid}/{label}")], "enable");
+        launchctl(&["start", label], "start");
         Ok(())
     }
 
     pub fn unregister(&self) -> Result<()> {
         let Self { label, plist, .. } = self;
+        let plist_str = plist.to_string_lossy();
 
-        log_cmd(run_cmd!(launchctl stop $label), "stop");
-        log_cmd(run_cmd!(launchctl unload -w $plist), "unload");
+        launchctl(&["stop", label], "stop");
+        launchctl(&["unload", "-w", &plist_str], "unload");
 
         match remove_file(plist) {
             Ok(()) => info!("Removed {}", plist.display()),
@@ -85,9 +93,10 @@ fn plist_contents(label: &str, bin: &Path) -> String {
     )
 }
 
-fn log_cmd(result: io::Result<()>, cmd: &str) {
-    match result {
-        Ok(()) => info!("launchctl {cmd}: success"),
+fn launchctl(args: &[&str], cmd: &str) {
+    match Command::new("launchctl").args(args).status() {
+        Ok(status) if status.success() => info!("launchctl {cmd}: success"),
+        Ok(status) => warn!("launchctl {cmd}: exited with {status}"),
         Err(why) => warn!("launchctl {cmd}: {why}"),
     }
 }

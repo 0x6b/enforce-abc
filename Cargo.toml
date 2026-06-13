@@ -1,7 +1,7 @@
 [package]
 name = "enforce-abc"
-version.workspace = true
-edition.workspace = true
+version = "1.0.0"
+edition = "2024"
 description = "Enforce the ABC input source on every macOS app activation."
 license = "MIT"
 repository = "https://github.com/0x6b/enforce-abc"
@@ -14,26 +14,11 @@ default-run = "enforce-abc"
 name = "enforce-abc"
 path = "src/main.rs"
 
-[workspace]
-members = ["xtask"]
-
-[workspace.package]
-version = "0.1.1"
-edition = "2024"
-
-[workspace.dependencies]
+[dependencies]
 anyhow = "1.0"
 clap = { version = "4.6", features = ["derive"] }
-cmd_lib = "2.0"
 env_logger = { version = "0.11", default-features = false, features = ["humantime"] }
 log = "0.4"
-
-[dependencies]
-anyhow.workspace = true
-clap.workspace = true
-cmd_lib.workspace = true
-env_logger.workspace = true
-log.workspace = true
 
 block2 = "0.6"
 core-foundation = "0.10"
