@@ -1,6 +1,6 @@
 [package]
 name = "enforce-abc"
-version = "0.1.1"
+version = "1.0.0"
 edition = "2024"
 description = "Enforce the ABC input source on every macOS app activation."
 license = "MIT"
