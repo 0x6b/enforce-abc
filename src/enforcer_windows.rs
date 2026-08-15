@@ -3,7 +3,6 @@ use std::{
     io,
     io::Error,
     mem::{size_of, zeroed},
-    ptr,
     ptr::null_mut,
     sync::atomic::{AtomicPtr, Ordering},
 };
