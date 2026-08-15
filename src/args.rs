@@ -13,8 +13,10 @@ pub enum Command {
     Start,
 
     /// Register the application to start on login.
+    #[cfg(target_os = "macos")]
     Register,
 
     /// Unregister the application from starting on login.
+    #[cfg(target_os = "macos")]
     Unregister,
 }

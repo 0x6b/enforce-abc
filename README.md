@@ -1,6 +1,9 @@
 # enforce-abc
 
-Switches the macOS keyboard input source to **ABC** every time an app is activated.
+Switches the keyboard input source to a Latin layout every time an app is activated:
+
+- **macOS:** ABC
+- **Windows:** English (United States)
 
 ## Install and Usage
 
@@ -8,23 +11,22 @@ Switches the macOS keyboard input source to **ABC** every time an app is activat
 $ cargo install --git https://github.com/0x6b/enforce-abc.git
 ```
 
-Run it directly, or register it as a LaunchAgent to start automatically:
+Run it directly:
 
 ```console
-$ enforce-abc            # run in the foreground (defaults to `start`)
-$ enforce-abc register   # install a LaunchAgent at ~/Library/LaunchAgents/enforce-abc.plist
-$ enforce-abc unregister # remove it
+$ enforce-abc # defaults to `start`
 ```
 
-To update, unregister the current LaunchAgent, reinstall, then register again:
+On macOS, it can also manage a LaunchAgent:
 
 ```console
-$ enforce-abc unregister
-$ cargo install --git https://github.com/0x6b/enforce-abc.git
 $ enforce-abc register
+$ enforce-abc unregister
 ```
 
-Logs go to stderr at `info` level by default; override with `RUST_LOG=debug enforce-abc`. When running as a LaunchAgent, stdout/stderr are written to `/tmp/enforce-abc.out.log` and `/tmp/enforce-abc.err.log`.
+On Windows, install the **English (United States)** keyboard layout before running `enforce-abc`. Configure startup separately if you want it to run automatically at logon.
+
+Logs go to stderr at `info` level by default; override with `RUST_LOG=debug enforce-abc`. When running as a macOS LaunchAgent, stdout/stderr are written to `/tmp/enforce-abc.out.log` and `/tmp/enforce-abc.err.log`.
 
 ## License
 

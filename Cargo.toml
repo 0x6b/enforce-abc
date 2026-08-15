@@ -2,11 +2,11 @@
 name = "enforce-abc"
 version = "1.0.0"
 edition = "2024"
-description = "Enforce the ABC input source on every macOS app activation."
+description = "Enforce a Latin keyboard input source on every app activation."
 license = "MIT"
 repository = "https://github.com/0x6b/enforce-abc"
 readme = "README.md"
-keywords = ["macos", "keyboard", "input-source"]
+keywords = ["macos", "windows", "keyboard", "input-source"]
 categories = ["command-line-utilities"]
 default-run = "enforce-abc"
 
@@ -20,6 +20,7 @@ clap = { version = "4.6", features = ["derive"] }
 env_logger = { version = "0.11", default-features = false, features = ["humantime"] }
 log = "0.4"
 
+[target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"
 core-foundation = "0.10"
 objc2 = "0.6"
@@ -35,6 +36,14 @@ objc2-foundation = { version = "0.3", features = [
     "NSOperation",
     "NSString",
     "NSThread",
+] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_UI_Accessibility",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
 ] }
 
 [profile.release]
