@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+echo "[setup] Ensuring Rust toolchain"
+if ! command -v rustup >/dev/null 2>&1; then
+  if ! command -v curl >/dev/null 2>&1; then
+    apt-get update
+    apt-get install -y curl ca-certificates
+  fi
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable --no-modify-path
+fi
+
+export PATH="$HOME/.cargo/bin:$PATH"
+profile_marker="# enforce-abc Rust toolchain"
+if ! grep -Fqx "$profile_marker" "$HOME/.bash_profile" 2>/dev/null; then
+  cat >> "$HOME/.bash_profile" <<'EOF'
+
+# enforce-abc Rust toolchain
+[[ -f "$HOME/.cargo/env" ]] && source "$HOME/.cargo/env"
+EOF
+fi
+
+rustup toolchain install stable --profile minimal --component clippy,rustfmt
+rustup default stable
+rustup target add --toolchain stable x86_64-apple-darwin x86_64-pc-windows-msvc
+rustup toolchain install nightly --profile minimal --component rustfmt
+
+echo "[setup] Ensuring cargo-lint"
+cargo_lint_version=v0.1.0
+cargo_lint_target=x86_64-unknown-linux-gnu
+cargo_lint_bundle="cargo-lint-${cargo_lint_version}-${cargo_lint_target}"
+cargo_lint_archive="${cargo_lint_bundle}.tar.gz"
+cargo_lint_sha256=76c5b5852487b92268240f2677295bbab730b9a9b26fbb3360efcc25fcfa20cc
+cargo_lint_root="$HOME/.local/share/cargo-lint/$cargo_lint_bundle"
+
+if [[ ! -d $cargo_lint_root ]] || ! (cd "$cargo_lint_root" && sha256sum --check --status FILESUMS); then
+  temp_dir=$(mktemp -d)
+  trap 'rm -rf -- "$temp_dir"' EXIT
+  curl --fail --location --proto '=https' --retry 3 --silent --show-error --output "$temp_dir/$cargo_lint_archive" "https://github.com/0x6b/cargo-lint/releases/download/$cargo_lint_version/$cargo_lint_archive"
+  printf '%s  %s\n' "$cargo_lint_sha256" "$temp_dir/$cargo_lint_archive" | sha256sum --check --status
+  tar -xzf "$temp_dir/$cargo_lint_archive" -C "$temp_dir"
+  (cd "$temp_dir/$cargo_lint_bundle" && sha256sum --check --status FILESUMS)
+  mkdir -p "$(dirname "$cargo_lint_root")"
+  rm -rf "$cargo_lint_root"
+  mv "$temp_dir/$cargo_lint_bundle" "$cargo_lint_root"
+fi
+
+mkdir -p "$HOME/.local/bin"
+for binary in cargo-lint cargo-dequalify cargo-pedantic-lite cargo-myfmt; do
+  ln -sfn "$cargo_lint_root/bin/$binary" "$HOME/.local/bin/$binary"
+done
+
+tools_profile_marker="# enforce-abc local tools"
+if ! grep -Fqx "$tools_profile_marker" "$HOME/.bash_profile" 2>/dev/null; then
+  cat >> "$HOME/.bash_profile" <<'EOF'
+
+# enforce-abc local tools
+export PATH="$HOME/.local/bin:$PATH"
+EOF
+fi
+
+echo "[setup] Fetching locked Cargo dependencies"
+cargo fetch --locked
+
+echo "[setup] Complete"
