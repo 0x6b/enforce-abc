@@ -20,6 +20,8 @@ use windows_sys::Win32::{
     },
 };
 
+const NONCONVERT_SCAN_CODE: u16 = 0x7b;
+
 pub fn run() -> Result<()> {
     if let Err(why) = send_nonconvert() {
         error!("Failed to send Muhenkan key at startup: {why}");
@@ -94,6 +96,7 @@ fn keyboard_input(flags: u32) -> INPUT {
         Anonymous: INPUT_0 {
             ki: KEYBDINPUT {
                 wVk: VK_NONCONVERT,
+                wScan: NONCONVERT_SCAN_CODE,
                 dwFlags: flags,
                 ..Default::default()
             },
