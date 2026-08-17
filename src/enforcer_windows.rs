@@ -2,6 +2,9 @@ use std::{
     io::Error,
     mem::{size_of, zeroed},
     ptr::null_mut,
+    sync::atomic::{AtomicU64, Ordering},
+    thread,
+    time::Duration,
 };
 
 use anyhow::{Context, Result, bail};
@@ -11,7 +14,8 @@ use windows_sys::Win32::{
     UI::{
         Accessibility::{HWINEVENTHOOK, SetWinEventHook, UnhookWinEvent},
         Input::KeyboardAndMouse::{
-            INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, SendInput, VK_NONCONVERT,
+            GetAsyncKeyState, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
+            SendInput, VK_MENU, VK_NONCONVERT,
         },
         WindowsAndMessaging::{
             DispatchMessageW, EVENT_SYSTEM_FOREGROUND, GetMessageW, MSG, TranslateMessage,
@@ -21,6 +25,9 @@ use windows_sys::Win32::{
 };
 
 const NONCONVERT_SCAN_CODE: u16 = 0x7b;
+const ALT_RELEASE_POLL_INTERVAL: Duration = Duration::from_millis(10);
+
+static ACTIVATION_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 pub fn run() -> Result<()> {
     if let Err(why) = send_nonconvert() {
@@ -70,9 +77,37 @@ unsafe extern "system" fn on_foreground_changed(
     _event_thread: u32,
     _event_time: u32,
 ) {
-    if let Err(why) = send_nonconvert() {
-        error!("Failed to send Muhenkan key: {why}");
+    send_nonconvert_after_alt_release();
+}
+
+fn send_nonconvert_after_alt_release() {
+    let generation = ACTIVATION_GENERATION
+        .fetch_add(1, Ordering::Relaxed)
+        .wrapping_add(1);
+    if !alt_is_pressed() {
+        if let Err(why) = send_nonconvert() {
+            error!("Failed to send Muhenkan key: {why}");
+        }
+        return;
     }
+
+    thread::spawn(move || {
+        while alt_is_pressed() {
+            if ACTIVATION_GENERATION.load(Ordering::Relaxed) != generation {
+                return;
+            }
+            thread::sleep(ALT_RELEASE_POLL_INTERVAL);
+        }
+        if ACTIVATION_GENERATION.load(Ordering::Relaxed) == generation
+            && let Err(why) = send_nonconvert()
+        {
+            error!("Failed to send Muhenkan key after Alt was released: {why}");
+        }
+    });
+}
+
+fn alt_is_pressed() -> bool {
+    unsafe { GetAsyncKeyState(VK_MENU as i32) as u16 & 0x8000 != 0 }
 }
 
 fn send_nonconvert() -> Result<()> {
