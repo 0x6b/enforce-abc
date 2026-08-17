@@ -2,7 +2,7 @@
 name = "enforce-abc"
 version = "1.0.0"
 edition = "2024"
-description = "Enforce a Latin keyboard input source on every app activation."
+description = "Enforce Latin input mode on every app activation."
 license = "MIT"
 repository = "https://github.com/0x6b/enforce-abc"
 readme = "README.md"
