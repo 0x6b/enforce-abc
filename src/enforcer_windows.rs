@@ -15,7 +15,8 @@ use windows_sys::Win32::{
         Accessibility::{HWINEVENTHOOK, SetWinEventHook, UnhookWinEvent},
         Input::KeyboardAndMouse::{
             GetAsyncKeyState, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
-            SendInput, VK_MENU, VK_NONCONVERT,
+            SendInput, VK_LBUTTON, VK_MBUTTON, VK_MENU, VK_NONCONVERT, VK_RBUTTON, VK_XBUTTON1,
+            VK_XBUTTON2,
         },
         WindowsAndMessaging::{
             DispatchMessageW, EVENT_SYSTEM_FOREGROUND, GetMessageW, MSG, TranslateMessage,
@@ -25,7 +26,7 @@ use windows_sys::Win32::{
 };
 
 const NONCONVERT_SCAN_CODE: u16 = 0x7b;
-const ALT_RELEASE_POLL_INTERVAL: Duration = Duration::from_millis(10);
+const INPUT_RELEASE_POLL_INTERVAL: Duration = Duration::from_millis(10);
 
 static ACTIVATION_GENERATION: AtomicU64 = AtomicU64::new(0);
 
@@ -77,14 +78,14 @@ unsafe extern "system" fn on_foreground_changed(
     _event_thread: u32,
     _event_time: u32,
 ) {
-    send_nonconvert_after_alt_release();
+    send_nonconvert_after_activation_input_release();
 }
 
-fn send_nonconvert_after_alt_release() {
+fn send_nonconvert_after_activation_input_release() {
     let generation = ACTIVATION_GENERATION
         .fetch_add(1, Ordering::Relaxed)
         .wrapping_add(1);
-    if !alt_is_pressed() {
+    if !activation_input_is_pressed() {
         if let Err(why) = send_nonconvert() {
             error!("Failed to send Muhenkan key: {why}");
         }
@@ -92,22 +93,33 @@ fn send_nonconvert_after_alt_release() {
     }
 
     thread::spawn(move || {
-        while alt_is_pressed() {
+        while activation_input_is_pressed() {
             if ACTIVATION_GENERATION.load(Ordering::Relaxed) != generation {
                 return;
             }
-            thread::sleep(ALT_RELEASE_POLL_INTERVAL);
+            thread::sleep(INPUT_RELEASE_POLL_INTERVAL);
         }
         if ACTIVATION_GENERATION.load(Ordering::Relaxed) == generation
             && let Err(why) = send_nonconvert()
         {
-            error!("Failed to send Muhenkan key after Alt was released: {why}");
+            error!("Failed to send Muhenkan key after activation input was released: {why}");
         }
     });
 }
 
-fn alt_is_pressed() -> bool {
-    unsafe { GetAsyncKeyState(VK_MENU as i32) as u16 & 0x8000 != 0 }
+fn activation_input_is_pressed() -> bool {
+    // Injecting a key while Alt+Tab or a taskbar thumbnail click is still in progress can cancel
+    // the pending window activation, so wait for every input that can initiate it to be released.
+    [
+        VK_MENU,
+        VK_LBUTTON,
+        VK_RBUTTON,
+        VK_MBUTTON,
+        VK_XBUTTON1,
+        VK_XBUTTON2,
+    ]
+    .into_iter()
+    .any(|key| unsafe { GetAsyncKeyState(key as i32) as u16 & 0x8000 != 0 })
 }
 
 fn send_nonconvert() -> Result<()> {
